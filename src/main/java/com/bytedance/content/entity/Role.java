@@ -16,7 +16,7 @@ public class Role {
 
     @NotNull(message = "角色名称不能为空")
     @Enumerated(EnumType.STRING)
-    @Column(name = "role_name", nullable = false, length = 50)
+    @Column(name = "role_name", nullable = false)
     private UserRole roleName;
 }
 

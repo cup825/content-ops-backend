@@ -1,4 +1,10 @@
 package com.bytedance.content.common.enums;
 
-public class contentStatus {
+public enum ContentStatus {
+    DRAFT,
+    PENDING,
+    APPROVED,
+    REJECTED,
+    ONLINE,
+    OFFLINE
 }

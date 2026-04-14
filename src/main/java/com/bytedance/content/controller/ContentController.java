@@ -1,4 +1,4 @@
 package com.bytedance.content.controller;
 
-public class contentController {
+public class ContentController {
 }
