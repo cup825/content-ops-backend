@@ -1,4 +1,4 @@
-package com.bytedance.content.permission.entity;
+package com.bytedance.content.admin.entity;
 
 import com.bytedance.content.common.enums.UserRole;
 import jakarta.persistence.*;

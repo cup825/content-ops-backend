@@ -2,15 +2,16 @@ package com.bytedance.content.content.service;
 
 import com.bytedance.content.common.enums.ContentStatus;
 import com.bytedance.content.common.exception.BusinessException;
+import com.bytedance.content.common.utils.DateTimeUtil;
 import com.bytedance.content.content.dto.CreateContentRequest;
 import com.bytedance.content.content.dto.CreateContentResponse;
 import com.bytedance.content.content.dto.UpdateContentRequest;
 import com.bytedance.content.content.entity.Content;
 import com.bytedance.content.content.repository.ContentRepository;
 import com.bytedance.content.content.repository.OperationLogRepository;
-import com.bytedance.content.permission.entity.User;
-import com.bytedance.content.permission.repository.UserRepository;
-import com.bytedance.content.permission.service.PermissionService;
+import com.bytedance.content.admin.entity.User;
+import com.bytedance.content.admin.repository.UserRepository;
+import com.bytedance.content.admin.service.PermissionCheckService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +34,7 @@ public class ContentService {
     private OperationLogRepository operationLogRepository;
 
     @Autowired
-    private PermissionService permissionService;
+    private PermissionCheckService permissionService;
 
     @Autowired
     private OperationLogService operationLogService;
@@ -42,9 +43,9 @@ public class ContentService {
      * 创建内容，初始状态为 DRAFT
      */
     public CreateContentResponse createContent(CreateContentRequest request) {
-        // 权限检查
+        // 权限检查：仅 OPERATOR 角色可创建内容
         if (!permissionService.canCreateContent(request.getCreatorId())) {
-            throw new BusinessException(403, "用户没有创建内容的权限");
+            throw new BusinessException(403, "只有运营人员才能创建内容");
         }
 
         // 查询创建人
@@ -68,15 +69,15 @@ public class ContentService {
     }
 
     /**
-     * 编辑内容（仅草稿状态可编辑）
+     * 编辑内容（仅草稿状态可编辑，仅创建人可编辑）
      */
     public CreateContentResponse updateContent(Long contentId, Long userId, UpdateContentRequest request) {
         // 查询内容
         Content content = contentRepository.findById(contentId)
                 .orElseThrow(() -> new BusinessException(404, "内容不存在"));
 
-        // 权限检查
-        if (!permissionService.isContentCreator(userId, content.getCreator().getId())) {
+        // 权限检查：仅 OPERATOR 且为创建人可编辑
+        if (!permissionService.canEditContent(userId, content.getCreator().getId())) {
             throw new BusinessException(403, "只能编辑自己创建的内容");
         }
 
@@ -243,8 +244,8 @@ public class ContentService {
                         c.getStatus().toString(),
                         c.getCreator().getId(),
                         c.getCreator().getUsername(),
-                        c.getCreatedAt() != null ? c.getCreatedAt().toString() : "",
-                        c.getUpdatedAt() != null ? c.getUpdatedAt().toString() : ""
+                        DateTimeUtil.format(c.getCreatedAt()),
+                        DateTimeUtil.format(c.getUpdatedAt())
                 ))
                 .collect(Collectors.toList());
 

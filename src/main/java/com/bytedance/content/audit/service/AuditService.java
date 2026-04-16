@@ -10,9 +10,9 @@ import com.bytedance.content.common.exception.BusinessException;
 import com.bytedance.content.content.entity.Content;
 import com.bytedance.content.content.repository.ContentRepository;
 import com.bytedance.content.content.service.OperationLogService;
-import com.bytedance.content.permission.entity.User;
-import com.bytedance.content.permission.repository.UserRepository;
-import com.bytedance.content.permission.service.PermissionService;
+import com.bytedance.content.admin.entity.User;
+import com.bytedance.content.admin.repository.UserRepository;
+import com.bytedance.content.admin.service.PermissionCheckService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,15 +34,15 @@ public class AuditService {
     private OperationLogService operationLogService;
 
     @Autowired
-    private PermissionService permissionService;
+    private PermissionCheckService permissionService;
 
     /**
      * 审核内容（通过或驳回）
      */
     public AuditResponse auditContent(AuditRequest request) {
-        // 权限检查
+        // 权限检查：仅 REVIEWER 角色可审核
         if (!permissionService.canAuditContent(request.getReviewerId())) {
-            throw new BusinessException(403, "用户没有审核权限");
+            throw new BusinessException(403, "只有审核员才能进行内容审核");
         }
 
         // 校验审核人是否存在

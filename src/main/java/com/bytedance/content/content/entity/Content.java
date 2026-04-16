@@ -1,7 +1,7 @@
 package com.bytedance.content.content.entity;
 
 import com.bytedance.content.common.enums.ContentStatus;
-import com.bytedance.content.permission.entity.User;
+import com.bytedance.content.admin.entity.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

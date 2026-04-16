@@ -69,7 +69,7 @@ public class ContentController {
      */
     @PostMapping("/offline")
     public CreateContentResponse offlineContent(
-            @PathVariable Long contentId,
+            @RequestParam Long contentId,
             @RequestParam Long userId) {
         return contentService.offlineContent(contentId, userId);
     }

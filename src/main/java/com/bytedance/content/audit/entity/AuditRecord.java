@@ -2,7 +2,7 @@ package com.bytedance.content.audit.entity;
 
 import com.bytedance.content.common.enums.AuditStatus;
 import com.bytedance.content.content.entity.Content;
-import com.bytedance.content.permission.entity.User;
+import com.bytedance.content.admin.entity.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
