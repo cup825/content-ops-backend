@@ -1,0 +1,57 @@
+### ===== 【单个测试 - 排查问题】=====
+
+### 第1步：创建文章
+POST http://localhost:8080/api/content/create
+Content-Type: application/json
+
+{
+  "title": "测试文章",
+  "content": "测试内容",
+  "creatorId": 2
+}
+
+###
+
+### 第2步：查看刚创建的文章（应该是ID=1）
+GET http://localhost:8080/api/content/list?page=1&pageSize=5
+
+###
+
+### 第3步：提交审核（会返回什么？）
+POST http://localhost:8080/api/content/1/submit-review?userId=2
+Content-Type: application/json
+
+###
+
+### 第4步：查看状态（应该变成PENDING了吗？）
+GET http://localhost:8080/api/content/list?page=1&pageSize=5
+
+###
+
+### 第5步：审核通过（仔细看返回什么错误）
+POST http://localhost:8080/api/content/audit
+Content-Type: application/json
+
+{
+  "contentId": 1,
+  "reviewerId": 5,
+  "action": "APPROVED",
+  "comment": "通过"
+}
+
+###
+
+### 第6步：查看状态（应该变成APPROVED了吗？）
+GET http://localhost:8080/api/content/list?page=1&pageSize=5
+
+###
+
+### 第7步：发布上线（看错误）
+POST http://localhost:8080/api/content/1/publish?userId=2
+Content-Type: application/json
+
+###
+
+### 第8步：查看最终状态（应该变成ONLINE了吗？）
+GET http://localhost:8080/api/content/list?page=1&pageSize=5
+
