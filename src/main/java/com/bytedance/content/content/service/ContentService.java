@@ -1,0 +1,261 @@
+package com.bytedance.content.content.service;
+
+import com.bytedance.content.common.enums.ContentStatus;
+import com.bytedance.content.common.exception.BusinessException;
+import com.bytedance.content.content.dto.CreateContentRequest;
+import com.bytedance.content.content.dto.CreateContentResponse;
+import com.bytedance.content.content.dto.UpdateContentRequest;
+import com.bytedance.content.content.entity.Content;
+import com.bytedance.content.content.repository.ContentRepository;
+import com.bytedance.content.content.repository.OperationLogRepository;
+import com.bytedance.content.permission.entity.User;
+import com.bytedance.content.permission.repository.UserRepository;
+import com.bytedance.content.permission.service.PermissionService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@Transactional
+public class ContentService {
+
+    @Autowired
+    private ContentRepository contentRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OperationLogRepository operationLogRepository;
+
+    @Autowired
+    private PermissionService permissionService;
+
+    @Autowired
+    private OperationLogService operationLogService;
+
+    /**
+     * 创建内容，初始状态为 DRAFT
+     */
+    public CreateContentResponse createContent(CreateContentRequest request) {
+        // 权限检查
+        if (!permissionService.canCreateContent(request.getCreatorId())) {
+            throw new BusinessException(403, "用户没有创建内容的权限");
+        }
+
+        // 查询创建人
+        User creator = userRepository.findById(request.getCreatorId())
+                .orElseThrow(() -> new BusinessException(400, "创建人不存在"));
+
+        // 创建内容
+        Content content = new Content();
+        content.setTitle(request.getTitle());
+        content.setContent(request.getContent());
+        content.setCreator(creator);
+        content.setStatus(ContentStatus.DRAFT);
+
+        // 保存内容
+        Content savedContent = contentRepository.save(content);
+
+        // 记录操作日志
+        operationLogService.log(request.getCreatorId(), "CREATE_CONTENT", savedContent.getId());
+
+        return new CreateContentResponse(savedContent.getId(), savedContent.getStatus());
+    }
+
+    /**
+     * 编辑内容（仅草稿状态可编辑）
+     */
+    public CreateContentResponse updateContent(Long contentId, Long userId, UpdateContentRequest request) {
+        // 查询内容
+        Content content = contentRepository.findById(contentId)
+                .orElseThrow(() -> new BusinessException(404, "内容不存在"));
+
+        // 权限检查
+        if (!permissionService.isContentCreator(userId, content.getCreator().getId())) {
+            throw new BusinessException(403, "只能编辑自己创建的内容");
+        }
+
+        // 状态检查
+        if (content.getStatus() != ContentStatus.DRAFT) {
+            throw new BusinessException(400, "只有草稿状态的内容才能编辑");
+        }
+
+        // 更新内容
+        content.setTitle(request.getTitle());
+        content.setContent(request.getContent());
+
+        Content updatedContent = contentRepository.save(content);
+
+        // 记录操作日志
+        operationLogService.log(userId, "UPDATE_CONTENT", contentId);
+
+        return new CreateContentResponse(updatedContent.getId(), updatedContent.getStatus());
+    }
+
+    /**
+     * 删除内容（仅草稿状态可删除）
+     */
+    public void deleteContent(Long contentId, Long userId) {
+        // 查询内容
+        Content content = contentRepository.findById(contentId)
+                .orElseThrow(() -> new BusinessException(404, "内容不存在"));
+
+        // 权限检查
+        if (!permissionService.isContentCreator(userId, content.getCreator().getId())) {
+            throw new BusinessException(403, "只能删除自己创建的内容");
+        }
+
+        // 状态检查
+        if (content.getStatus() != ContentStatus.DRAFT) {
+            throw new BusinessException(400, "只有草稿状态的内容才能删除");
+        }
+
+        // 删除内容
+        contentRepository.delete(content);
+
+        // 记录操作日志
+        operationLogService.log(userId, "DELETE_CONTENT", contentId);
+    }
+
+    /**
+     * 提交审核（草稿 → 待审核）
+     */
+    public com.bytedance.content.content.dto.SubmitReviewResponse submitForReview(Long contentId, Long userId) {
+        // 查询内容
+        Content content = contentRepository.findById(contentId)
+                .orElseThrow(() -> new BusinessException(404, "内容不存在"));
+
+        // 权限检查
+        if (!permissionService.isContentCreator(userId, content.getCreator().getId())) {
+            throw new BusinessException(403, "只能提交自己创建的内容");
+        }
+
+        // 状态检查
+        if (content.getStatus() != ContentStatus.DRAFT && content.getStatus() != ContentStatus.REJECTED) {
+            throw new BusinessException(400, "只有草稿或拒绝状态的内容才能提交审核");
+        }
+
+        // 状态转换
+        content.setStatus(ContentStatus.PENDING);
+
+        Content savedContent = contentRepository.save(content);
+
+        // 记录操作日志
+        operationLogService.log(userId, "SUBMIT_REVIEW", contentId);
+
+        return new com.bytedance.content.content.dto.SubmitReviewResponse(savedContent.getId(), savedContent.getStatus().toString(), "提交审核成功");
+    }
+
+    /**
+     * 发布内容（审核通过 → 已上线）
+     */
+    public CreateContentResponse publishContent(Long contentId, Long userId) {
+        // 查询内容
+        Content content = contentRepository.findById(contentId)
+                .orElseThrow(() -> new BusinessException(404, "内容不存在"));
+
+        // 状态检查
+        if (content.getStatus() != ContentStatus.APPROVED) {
+            throw new BusinessException(400, "只有审核通过的内容才能发布");
+        }
+
+        // 权限检查
+        if (!permissionService.isContentCreator(userId, content.getCreator().getId())) {
+            throw new BusinessException(403, "只能发布自己创建的内容");
+        }
+
+        // 状态转换
+        content.setStatus(ContentStatus.ONLINE);
+
+        Content savedContent = contentRepository.save(content);
+
+        // 记录操作日志
+        operationLogService.log(userId, "PUBLISH_CONTENT", contentId);
+
+        return new CreateContentResponse(savedContent.getId(), savedContent.getStatus());
+    }
+
+    /**
+     * 下线内容（已上线 → 已下线）
+     */
+    public CreateContentResponse offlineContent(Long contentId, Long userId) {
+        // 查询内容
+        Content content = contentRepository.findById(contentId)
+                .orElseThrow(() -> new BusinessException(404, "内容不存在"));
+
+        // 状态检查
+        if (content.getStatus() != ContentStatus.ONLINE) {
+            throw new BusinessException(400, "只有已上线的内容才能下线");
+        }
+
+        // 权限检查
+        if (!permissionService.isContentCreator(userId, content.getCreator().getId())) {
+            throw new BusinessException(403, "只能下线自己创建的内容");
+        }
+
+        // 状态转换
+        content.setStatus(ContentStatus.OFFLINE);
+
+        Content savedContent = contentRepository.save(content);
+
+        // 记录操作日志
+        operationLogService.log(userId, "OFFLINE_CONTENT", contentId);
+
+        return new CreateContentResponse(savedContent.getId(), savedContent.getStatus());
+    }
+
+    /**
+     * 查询内容列表
+     */
+    public Map<String, Object> listContent(String status, Long creatorId, Integer page, Integer pageSize, String startDate, String endDate) {
+        // 默认参数
+        if (page == null || page < 1) page = 1;
+        if (pageSize == null || pageSize < 1) pageSize = 10;
+
+        // 从数据库查询所有内容
+        List<Content> allContents = contentRepository.findAll();
+
+        // 过滤逻辑
+        List<Content> filtered = allContents.stream()
+                .filter(c -> status == null || c.getStatus().toString().equals(status))
+                .filter(c -> creatorId == null || c.getCreator().getId().equals(creatorId))
+                .collect(Collectors.toList());
+
+        // 排序（按创建时间倒序）
+        filtered.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+
+        // 分页
+        int total = filtered.size();
+        int start = (page - 1) * pageSize;
+        int end = Math.min(start + pageSize, total);
+        List<Content> pageData = filtered.subList(start, end);
+
+        // 转换为响应格式
+        List<com.bytedance.content.content.dto.ContentListItemResponse> data = pageData.stream()
+                .map(c -> new com.bytedance.content.content.dto.ContentListItemResponse(
+                        c.getId(),
+                        c.getTitle(),
+                        c.getStatus().toString(),
+                        c.getCreator().getId(),
+                        c.getCreator().getUsername(),
+                        c.getCreatedAt() != null ? c.getCreatedAt().toString() : "",
+                        c.getUpdatedAt() != null ? c.getUpdatedAt().toString() : ""
+                ))
+                .collect(Collectors.toList());
+
+        // 构建返回值
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("total", total);
+        response.put("page", page);
+        response.put("pageSize", pageSize);
+        response.put("data", data);
+
+        return response;
+    }
+}
+
