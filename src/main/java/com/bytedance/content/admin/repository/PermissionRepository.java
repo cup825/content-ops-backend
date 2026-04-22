@@ -4,6 +4,8 @@ import com.bytedance.content.admin.entity.Permission;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface PermissionRepository extends JpaRepository<Permission, Long> {
     
@@ -11,5 +13,10 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
      * 检查权限名称是否已存在
      */
     boolean existsByPermissionName(String permissionName);
+    
+    /**
+     * 根据权限名称查找权限
+     */
+    Optional<Permission> findByPermissionName(String permissionName);
 }
 

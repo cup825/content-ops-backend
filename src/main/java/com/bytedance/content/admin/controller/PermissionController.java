@@ -37,6 +37,7 @@ public class PermissionController {
         return permissionManageService.getAllUsers();
     }
 
+
     /**
      * 获取单个用户
      */
@@ -84,6 +85,7 @@ public class PermissionController {
         return permissionManageService.getAllRoles();
     }
 
+
     // ==================== 权限管理 ====================
 
     /**
@@ -93,6 +95,7 @@ public class PermissionController {
     public List<PermissionResponse> getAllPermissions() {
         return permissionManageService.getAllPermissions();
     }
+
 
     /**
      * 创建权限（需要 ADMIN 权限）

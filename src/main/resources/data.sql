@@ -6,23 +6,23 @@ INSERT IGNORE INTO role (role_name) VALUES ('OPERATOR');
 INSERT IGNORE INTO role (role_name) VALUES ('REVIEWER');
 
 -- 插入用户数据 (使用 INSERT IGNORE 避免重复插入)
--- 管理员
+-- 管理员 (密码: admin123 - BCrypt加密)
 INSERT IGNORE INTO user (username, password, role_id, created_at)
-VALUES ('admin', 'admin123', 1, NOW());
+VALUES ('admin', '$2a$10$slYQmyNdGzin7olVN3DONOr8htsbK55yKpxFZpf0dVVAFhE7aZZwO', 1, NOW());
 
--- 运营人员 (OPERATOR) - 多个
+-- 运营人员 (OPERATOR) - 多个 (密码: operator123 - BCrypt加密)
 INSERT IGNORE INTO user (username, password, role_id, created_at)
-VALUES ('operator1', 'operator123', 2, NOW());
+VALUES ('operator1', '$2a$10$6cEjOaECL.a4qMBDhVvGK.F4sQ3M6YfJNGzYLQQqI5nO3KfqRQNfm', 2, NOW());
 INSERT IGNORE INTO user (username, password, role_id, created_at)
-VALUES ('operator2', 'operator123', 2, NOW());
+VALUES ('operator2', '$2a$10$6cEjOaECL.a4qMBDhVvGK.F4sQ3M6YfJNGzYLQQqI5nO3KfqRQNfm', 2, NOW());
 INSERT IGNORE INTO user (username, password, role_id, created_at)
-VALUES ('operator3', 'operator123', 2, NOW());
+VALUES ('operator3', '$2a$10$6cEjOaECL.a4qMBDhVvGK.F4sQ3M6YfJNGzYLQQqI5nO3KfqRQNfm', 2, NOW());
 
--- 审核员 (REVIEWER) - 多个
+-- 审核员 (REVIEWER) - 多个 (密码: reviewer123 - BCrypt加密)
 INSERT IGNORE INTO user (username, password, role_id, created_at)
-VALUES ('reviewer1', 'reviewer123', 3, NOW());
+VALUES ('reviewer1', '$2a$10$H4hJGkN7aMQRCBCQfXKhB.nFQBrK0t2kN9P3w2YmK.sN5B8m0w2mK', 3, NOW());
 INSERT IGNORE INTO user (username, password, role_id, created_at)
-VALUES ('reviewer2', 'reviewer123', 3, NOW());
+VALUES ('reviewer2', '$2a$10$H4hJGkN7aMQRCBCQfXKhB.nFQBrK0t2kN9P3w2YmK.sN5B8m0w2mK', 3, NOW());
 
 -- ====================================================
 -- 插入权限数据 (根据角色职责分类)
