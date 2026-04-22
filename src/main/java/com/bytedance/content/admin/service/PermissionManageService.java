@@ -17,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 /**
  * 权限管理服务
@@ -79,6 +82,40 @@ public class PermissionManageService {
                         user.getCreatedAt() != null ? user.getCreatedAt().toString() : ""
                 ))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页获取用户（支持排序）
+     */
+    public PaginationResponse<UserResponse> getUsersByPage(PaginationRequest request) {
+        Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder()) 
+                ? Sort.Direction.DESC : Sort.Direction.ASC;
+        String sortBy = request.getSortBy() != null ? request.getSortBy() : "id";
+        
+        org.springframework.data.domain.Pageable pageable = PageRequest.of(
+                request.getPageNumber(),
+                request.getPageSize(),
+                Sort.by(direction, sortBy)
+        );
+        
+        Page<User> page = userRepository.findAll(pageable);
+        
+        List<UserResponse> content = page.getContent().stream()
+                .map(user -> new UserResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getRole().getRoleName().toString(),
+                        user.getCreatedAt() != null ? user.getCreatedAt().toString() : ""
+                ))
+                .collect(Collectors.toList());
+        
+        return new PaginationResponse<>(
+                content,
+                page.getTotalElements(),
+                request.getPage() != null ? request.getPage() : 1,
+                request.getPageSize(),
+                page.getTotalPages()
+        );
     }
 
     /**
@@ -179,6 +216,36 @@ public class PermissionManageService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 根据 ID 获取角色
+     */
+    public RoleResponse getRoleById(Long roleId) {
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new BusinessException(404, "角色不存在"));
+        return new RoleResponse(
+                role.getId(),
+                role.getRoleName().toString()
+        );
+    }
+
+    /**
+     * 更新角色（需要 ADMIN 权限）
+     * 注意：实际系统中，Role 通常是系统预定义的枚举值，不应动态修改
+     */
+    public RoleResponse updateRole(Long operatorId, Long roleId, RoleCreateRequest request) {
+        checkPermission(operatorId);
+        throw new BusinessException(400, "角色为系统预定义，不支持修改");
+    }
+
+    /**
+     * 删除角色（需要 ADMIN 权限）
+     * 注意：实际系统中，Role 是系统预定义，不应删除
+     */
+    public void deleteRole(Long operatorId, Long roleId) {
+        checkPermission(operatorId);
+        throw new BusinessException(400, "角色为系统预定义，不支持删除");
+    }
+
     // ====================================================
     // 权限管理
     // ====================================================
@@ -193,6 +260,38 @@ public class PermissionManageService {
                         permission.getPermissionName()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页获取权限（支持排序）
+     */
+    public PaginationResponse<PermissionResponse> getPermissionsByPage(PaginationRequest request) {
+        Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder())
+                ? Sort.Direction.DESC : Sort.Direction.ASC;
+        String sortBy = request.getSortBy() != null ? request.getSortBy() : "id";
+
+        org.springframework.data.domain.Pageable pageable = PageRequest.of(
+                request.getPageNumber(),
+                request.getPageSize(),
+                Sort.by(direction, sortBy)
+        );
+
+        Page<Permission> page = permissionRepository.findAll(pageable);
+
+        List<PermissionResponse> content = page.getContent().stream()
+                .map(permission -> new PermissionResponse(
+                        permission.getId(),
+                        permission.getPermissionName()
+                ))
+                .collect(Collectors.toList());
+
+        return new PaginationResponse<>(
+                content,
+                page.getTotalElements(),
+                request.getPage() != null ? request.getPage() : 1,
+                request.getPageSize(),
+                page.getTotalPages()
+        );
     }
 
     /**

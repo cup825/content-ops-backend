@@ -30,11 +30,18 @@ public class PermissionController {
     // ==================== 用户管理 ====================
 
     /**
-     * 获取所有用户
+     * 分页获取用户列表（支持排序）
+     * 
+     * 示例：GET /api/admin/users/page?page=1&pageSize=10&sortBy=id&sortOrder=desc
      */
-    @GetMapping("/users")
-    public List<UserResponse> getAllUsers() {
-        return permissionManageService.getAllUsers();
+    @GetMapping("/users/page")
+    public PaginationResponse<UserResponse> getUsersByPage(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortOrder) {
+        PaginationRequest request = new PaginationRequest(page, pageSize, sortBy, sortOrder);
+        return permissionManageService.getUsersByPage(request);
     }
 
 
@@ -85,11 +92,56 @@ public class PermissionController {
         return permissionManageService.getAllRoles();
     }
 
+    /**
+     * 获取单个角色
+     */
+    @GetMapping("/roles/{roleId}")
+    public RoleResponse getRole(@PathVariable Long roleId) {
+        return permissionManageService.getRoleById(roleId);
+    }
+
+    /**
+     * 更新角色（需要 ADMIN 权限）
+     * 注意：系统预定义角色，暂不支持修改
+     */
+    @PutMapping("/roles/{roleId}")
+    public RoleResponse updateRole(@PathVariable Long roleId,
+                                  @RequestHeader(value = "X-User-Id", required = false) Long operatorId,
+                                  @RequestBody RoleCreateRequest request) {
+        return permissionManageService.updateRole(operatorId, roleId, request);
+    }
+
+    /**
+     * 删除角色（需要 ADMIN 权限）
+     * 注意：系统预定义角色，暂不支持删除
+     */
+    @DeleteMapping("/roles/{roleId}")
+    public Map<String, String> deleteRole(@PathVariable Long roleId,
+                                         @RequestHeader(value = "X-User-Id", required = false) Long operatorId) {
+        permissionManageService.deleteRole(operatorId, roleId);
+        return Map.of("message", "角色删除成功");
+    }
+
 
     // ==================== 权限管理 ====================
 
     /**
-     * 获取所有权限
+     * 分页获取权限列表（支持排序）
+     * 
+     * 示例：GET /api/admin/permissions/page?page=1&pageSize=10&sortBy=id&sortOrder=asc
+     */
+    @GetMapping("/permissions/page")
+    public PaginationResponse<PermissionResponse> getPermissionsByPage(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortOrder) {
+        PaginationRequest request = new PaginationRequest(page, pageSize, sortBy, sortOrder);
+        return permissionManageService.getPermissionsByPage(request);
+    }
+
+    /**
+     * 获取所有权限（全量）
      */
     @GetMapping("/permissions")
     public List<PermissionResponse> getAllPermissions() {
