@@ -1,4 +1,16 @@
-﻿package com.bytedance.content.admin.service;
+package com.bytedance.content.admin.service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import com.bytedance.content.common.utils.SecurityUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bytedance.content.admin.dto.*;
 import com.bytedance.content.admin.entity.Permission;
@@ -10,16 +22,6 @@ import com.bytedance.content.admin.repository.UserRepository;
 import com.bytedance.content.common.exception.BusinessException;
 import com.bytedance.content.common.utils.PasswordEncoderUtil;
 import com.bytedance.content.content.service.OperationLogService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 
 /**
  * 权限管理服务
@@ -51,13 +53,13 @@ public class PermissionManageService {
     @Autowired
     private PermissionCheckService permissionCheckService;
 
-    /**
-     * 权限校验：检查用户是否拥有特定角色权限
-     *
-     * @param operatorId 操作者ID
-     * @throws BusinessException 403 权限不足
-     */
     private void checkPermission(Long operatorId) {
+        // 首先尝试从安全上下文获取认证用户信息
+        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
+        if (authenticatedUserId != null) {
+            operatorId = authenticatedUserId;
+        }
+        
         if (operatorId == null) {
             throw new BusinessException(403, "操作权限不足");
         }
@@ -66,13 +68,7 @@ public class PermissionManageService {
         }
     }
 
-    // ====================================================
     // 用户管理
-    // ====================================================
-
-    /**
-     * 获取所有用户
-     */
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(user -> new UserResponse(
@@ -84,9 +80,6 @@ public class PermissionManageService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 分页获取用户（支持排序）
-     */
     public PaginationResponse<UserResponse> getUsersByPage(PaginationRequest request) {
         Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder()) 
                 ? Sort.Direction.DESC : Sort.Direction.ASC;
@@ -118,9 +111,6 @@ public class PermissionManageService {
         );
     }
 
-    /**
-     * 根据 ID 获取用户
-     */
     public UserResponse getUserById(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
@@ -132,26 +122,20 @@ public class PermissionManageService {
         );
     }
 
-    /**
-     * 创建用户（需要 ADMIN 权限）
-     */
     public UserResponse createUser(Long operatorId, UserCreateRequest request) {
-        // 权限校验：仅 ADMIN 可创建用户
         checkPermission(operatorId);
-        // 检查用户名是否已存在
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             throw new BusinessException(400, "用户名已存在");
         }
-        // 检查角色是否存在
         Role role = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new BusinessException(404, "角色不存在"));
-        // 创建用户 - 使用 BCrypt 加密密码
+        
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoderUtil.encode(request.getPassword()));
         user.setRole(role);
         User savedUser = userRepository.save(user);
-        // 记录操作日志
+        
         operationLogService.log(operatorId != null ? operatorId : 1L, "CREATE_USER", savedUser.getId());
         return new UserResponse(
                 savedUser.getId(),
@@ -161,23 +145,18 @@ public class PermissionManageService {
         );
     }
 
-    /**
-     * 更新用户（需要 ADMIN 权限）
-     */
     public UserResponse updateUser(Long operatorId, Long userId, UserCreateRequest request) {
-        // 权限校验：仅 ADMIN 可更新用户
         checkPermission(operatorId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
-        // 检查角色是否存在
         Role role = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new BusinessException(404, "角色不存在"));
+        
         user.setUsername(request.getUsername());
-        // 使用 BCrypt 加密密码
         user.setPassword(passwordEncoderUtil.encode(request.getPassword()));
         user.setRole(role);
         User updatedUser = userRepository.save(user);
-        // 记录操作日志
+        
         operationLogService.log(operatorId != null ? operatorId : 1L, "UPDATE_USER", userId);
         return new UserResponse(
                 updatedUser.getId(),
@@ -187,26 +166,15 @@ public class PermissionManageService {
         );
     }
 
-    /**
-     * 删除用户（需要 ADMIN 权限）
-     */
     public void deleteUser(Long operatorId, Long userId) {
-        // 权限校验：仅 ADMIN 可删除用户
         checkPermission(operatorId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
         userRepository.delete(user);
-        // 记录操作日志
         operationLogService.log(operatorId != null ? operatorId : 1L, "DELETE_USER", userId);
     }
 
-    // ====================================================
     // 角色管理
-    // ====================================================
-
-    /**
-     * 获取所有角色
-     */
     public List<RoleResponse> getAllRoles() {
         return roleRepository.findAll().stream()
                 .map(role -> new RoleResponse(
@@ -216,9 +184,6 @@ public class PermissionManageService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 根据 ID 获取角色
-     */
     public RoleResponse getRoleById(Long roleId) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new BusinessException(404, "角色不存在"));
@@ -228,31 +193,17 @@ public class PermissionManageService {
         );
     }
 
-    /**
-     * 更新角色（需要 ADMIN 权限）
-     * 注意：实际系统中，Role 通常是系统预定义的枚举值，不应动态修改
-     */
     public RoleResponse updateRole(Long operatorId, Long roleId, RoleCreateRequest request) {
         checkPermission(operatorId);
         throw new BusinessException(400, "角色为系统预定义，不支持修改");
     }
 
-    /**
-     * 删除角色（需要 ADMIN 权限）
-     * 注意：实际系统中，Role 是系统预定义，不应删除
-     */
     public void deleteRole(Long operatorId, Long roleId) {
         checkPermission(operatorId);
         throw new BusinessException(400, "角色为系统预定义，不支持删除");
     }
 
-    // ====================================================
     // 权限管理
-    // ====================================================
-
-    /**
-     * 获取所有权限
-     */
     public List<PermissionResponse> getAllPermissions() {
         return permissionRepository.findAll().stream()
                 .map(permission -> new PermissionResponse(
@@ -262,9 +213,6 @@ public class PermissionManageService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 分页获取权限（支持排序）
-     */
     public PaginationResponse<PermissionResponse> getPermissionsByPage(PaginationRequest request) {
         Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder())
                 ? Sort.Direction.DESC : Sort.Direction.ASC;
@@ -294,20 +242,16 @@ public class PermissionManageService {
         );
     }
 
-    /**
-     * 创建权限（需要 ADMIN 权限）
-     */
     public PermissionResponse createPermission(Long operatorId, PermissionCreateRequest request) {
-        // 权限校验：仅 ADMIN 可创建权限
         checkPermission(operatorId);
-        // 检查权限是否已存在
         if (permissionRepository.findByPermissionName(request.getPermissionName()).isPresent()) {
             throw new BusinessException(400, "权限已存在");
         }
+        
         Permission permission = new Permission();
         permission.setPermissionName(request.getPermissionName());
         Permission savedPermission = permissionRepository.save(permission);
-        // 记录操作日志
+        
         operationLogService.log(operatorId != null ? operatorId : 1L, "CREATE_PERMISSION", savedPermission.getId());
         return new PermissionResponse(
                 savedPermission.getId(),
@@ -315,22 +259,14 @@ public class PermissionManageService {
         );
     }
 
-    /**
-     * 删除权限（需要 ADMIN 权限）
-     */
     public void deletePermission(Long operatorId, Long permissionId) {
-        // 权限校验：仅 ADMIN 可删除权限
         checkPermission(operatorId);
         Permission permission = permissionRepository.findById(permissionId)
                 .orElseThrow(() -> new BusinessException(404, "权限不存在"));
         permissionRepository.delete(permission);
-        // 记录操作日志
         operationLogService.log(operatorId != null ? operatorId : 1L, "DELETE_PERMISSION", permissionId);
     }
 
-    /**
-     * 获取系统统计信息
-     */
     public Map<String, Object> getSystemStats() {
         long userCount = userRepository.count();
         long roleCount = roleRepository.count();
@@ -342,3 +278,4 @@ public class PermissionManageService {
         );
     }
 }
+

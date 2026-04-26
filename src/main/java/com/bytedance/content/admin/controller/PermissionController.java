@@ -3,6 +3,7 @@ package com.bytedance.content.admin.controller;
 import com.bytedance.content.admin.dto.*;
 import com.bytedance.content.admin.service.PermissionManageService;
 import com.bytedance.content.admin.service.PermissionCheckService;
+import com.bytedance.content.common.utils.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -74,10 +75,18 @@ public class PermissionController {
 
     /**
      * 删除用户（需要 ADMIN 权限）
+     * 
+     * 认证方式：
+     * 1. 优先使用 JWT token（Authorization: Bearer <token>）
+     * 2. 向后兼容 X-User-Id header
      */
     @DeleteMapping("/users/{userId}")
     public Map<String, String> deleteUser(@PathVariable Long userId,
                                           @RequestHeader(value = "X-User-Id", required = false) Long operatorId) {
+        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
+        if (authenticatedUserId != null) {
+            operatorId = authenticatedUserId;
+        }
         permissionManageService.deleteUser(operatorId, userId);
         return Map.of("message", "用户删除成功");
     }
@@ -108,6 +117,10 @@ public class PermissionController {
     public RoleResponse updateRole(@PathVariable Long roleId,
                                   @RequestHeader(value = "X-User-Id", required = false) Long operatorId,
                                   @RequestBody RoleCreateRequest request) {
+        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
+        if (authenticatedUserId != null) {
+            operatorId = authenticatedUserId;
+        }
         return permissionManageService.updateRole(operatorId, roleId, request);
     }
 
@@ -118,6 +131,10 @@ public class PermissionController {
     @DeleteMapping("/roles/{roleId}")
     public Map<String, String> deleteRole(@PathVariable Long roleId,
                                          @RequestHeader(value = "X-User-Id", required = false) Long operatorId) {
+        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
+        if (authenticatedUserId != null) {
+            operatorId = authenticatedUserId;
+        }
         permissionManageService.deleteRole(operatorId, roleId);
         return Map.of("message", "角色删除成功");
     }
@@ -156,6 +173,10 @@ public class PermissionController {
     @PostMapping("/permissions")
     public PermissionResponse createPermission(@RequestHeader(value = "X-User-Id", required = false) Long operatorId,
                                                @RequestBody PermissionCreateRequest request) {
+        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
+        if (authenticatedUserId != null) {
+            operatorId = authenticatedUserId;
+        }
         return permissionManageService.createPermission(operatorId, request);
     }
 
@@ -165,6 +186,10 @@ public class PermissionController {
     @DeleteMapping("/permissions/{permissionId}")
     public Map<String, String> deletePermission(@PathVariable Long permissionId,
                                                 @RequestHeader(value = "X-User-Id", required = false) Long operatorId) {
+        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
+        if (authenticatedUserId != null) {
+            operatorId = authenticatedUserId;
+        }
         permissionManageService.deletePermission(operatorId, permissionId);
         return Map.of("message", "权限删除成功");
     }
