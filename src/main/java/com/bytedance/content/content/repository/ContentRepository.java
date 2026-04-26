@@ -28,5 +28,8 @@ public interface ContentRepository extends JpaRepository<Content, Long> {
             @Param("creatorId") Long creatorId,
             Pageable pageable
     );
+
+    // 按内容状态统计数量
+    long countByStatus(ContentStatus status);
 }
 
