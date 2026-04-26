@@ -8,7 +8,14 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "operation_log")
+@Table(name = "operation_log", indexes = {
+        // 按操作人查询日志时用
+        @Index(name = "idx_log_user_id", columnList = "user_id"),
+        // 按操作类型查询日志时用
+        @Index(name = "idx_log_action", columnList = "action"),
+        // 按时间查询日志时用
+        @Index(name = "idx_log_created_at", columnList = "created_at")
+})
 @Data
 public class OperationLog {
 

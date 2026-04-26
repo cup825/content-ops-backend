@@ -12,6 +12,8 @@ import com.bytedance.content.content.repository.OperationLogRepository;
 import com.bytedance.content.admin.entity.User;
 import com.bytedance.content.admin.repository.UserRepository;
 import com.bytedance.content.admin.service.PermissionCheckService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +29,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class ContentService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ContentService.class);
 
     @Autowired
     private ContentRepository contentRepository;
@@ -47,28 +51,21 @@ public class ContentService {
      * 创建内容，初始状态为 DRAFT
      */
     public CreateContentResponse createContent(CreateContentRequest request) {
-        // 权限检查：仅 OPERATOR 角色可创建内容
+        logger.info("创建内容：userId={}, title={}", request.getCreatorId(), request.getTitle());
         if (!permissionService.canCreateContent(request.getCreatorId())) {
+            logger.warn("创建内容权限不足：userId={}", request.getCreatorId());
             throw new BusinessException(403, "只有运营人员才能创建内容");
         }
-
-        // 查询创建人
         User creator = userRepository.findById(request.getCreatorId())
                 .orElseThrow(() -> new BusinessException(400, "创建人不存在"));
-
-        // 创建内容
         Content content = new Content();
         content.setTitle(request.getTitle());
         content.setContent(request.getContent());
         content.setCreator(creator);
         content.setStatus(ContentStatus.DRAFT);
-
-        // 保存内容
         Content savedContent = contentRepository.save(content);
-
-        // 记录操作日志
         operationLogService.log(request.getCreatorId(), "CREATE_CONTENT", savedContent.getId());
-
+        logger.info("内容创建成功：contentId={}", savedContent.getId());
         return new CreateContentResponse(savedContent.getId(), savedContent.getStatus());
     }
 

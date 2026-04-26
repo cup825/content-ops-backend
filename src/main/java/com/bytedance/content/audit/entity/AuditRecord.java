@@ -11,7 +11,14 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "audit_record")
+@Table(name = "audit_record", indexes = {
+        // 按审核状态统计通过率时用
+        @Index(name = "idx_audit_status", columnList = "status"),
+        // 按审核员查询审核记录时用
+        @Index(name = "idx_audit_reviewer_id", columnList = "reviewer_id"),
+        // 按时间范围查询审核记录时用
+        @Index(name = "idx_audit_created_at", columnList = "created_at")
+})
 @Data
 public class AuditRecord {
 

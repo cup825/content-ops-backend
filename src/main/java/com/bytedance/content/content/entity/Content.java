@@ -13,7 +13,16 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "content")
+@Table(name = "content", indexes = {
+        // status 字段：按状态查询/统计时用（如 countByStatus）
+        @Index(name = "idx_content_status", columnList = "status"),
+        // creator_id 字段：按创建者筛选内容时用
+        @Index(name = "idx_content_creator_id", columnList = "creator_id"),
+        // created_at 字段：按时间范围统计发布量时用
+        @Index(name = "idx_content_created_at", columnList = "created_at"),
+        // 组合索引：同时按状态+时间查询时，比两个单独索引更快
+        @Index(name = "idx_content_status_created_at", columnList = "status, created_at")
+})
 @Data
 @ToString(exclude = {"content"})
 public class Content {
