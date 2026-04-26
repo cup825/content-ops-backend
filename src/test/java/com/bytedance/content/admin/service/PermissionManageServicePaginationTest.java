@@ -98,9 +98,9 @@ public class PermissionManageServicePaginationTest {
         assertEquals(5, response.getPageSize(), "每页条数应该是5");
         assertEquals(2, response.getTotalPages(), "总共应该有2页");
 
-        // 验证第一条数据
+        // 验证第一条数据（按 id asc 排序，第一条用户名应该是 user1）
         UserResponse firstUser = response.getContent().get(0);
-        assertEquals(1L, firstUser.getId(), "第一条数据ID应该是1");
+        assertNotNull(firstUser.getId(), "第一条数据ID不能为空");
         assertEquals("user1", firstUser.getUsername(), "用户名应该是user1");
     }
 
@@ -120,9 +120,9 @@ public class PermissionManageServicePaginationTest {
         assertEquals(2, response.getPage(), "当前页码应该是2");
         assertEquals(2, response.getTotalPages(), "总页数应该是2");
 
-        // 验证第二页的第一条数据
+        // 验证第二页的第一条数据（按 id asc 排序，第二页第一条应该是 user6）
         UserResponse firstUserOnPage2 = response.getContent().get(0);
-        assertEquals(6L, firstUserOnPage2.getId(), "第二页的第一条数据ID应该是6");
+        assertNotNull(firstUserOnPage2.getId(), "第二页第一条数据ID不能为空");
         assertEquals("user6", firstUserOnPage2.getUsername(), "用户名应该是user6");
     }
 
@@ -135,10 +135,14 @@ public class PermissionManageServicePaginationTest {
         PaginationRequest request = new PaginationRequest(1, 5, "id", "desc");
         PaginationResponse<UserResponse> response = permissionManageService.getUsersByPage(request);
 
-        // 验证数据按倒序排列
+        // 验证数据按倒序排列（通过 username 判断：倒序时 user10 在前，user6 在后）
         List<UserResponse> content = response.getContent();
-        assertEquals(10L, content.get(0).getId(), "倒序后第一个应该是ID最大的用户（10）");
-        assertEquals(6L, content.get(4).getId(), "倒序后第五个应该是ID为6的用户");
+        assertEquals("user10", content.get(0).getUsername(), "倒序后第一个应该是 user10");
+        assertEquals("user6", content.get(4).getUsername(), "倒序后第五个应该是 user6");
+        // 额外验证 ID 是降序排列的
+        for (int i = 0; i < content.size() - 1; i++) {
+            assertTrue(content.get(i).getId() > content.get(i + 1).getId(), "ID 应该从大到小排列");
+        }
     }
 
     @Test

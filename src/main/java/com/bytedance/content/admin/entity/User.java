@@ -10,8 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-//@Table(name = "user")
-@Table(name = "sys_user")
+@Table(name = "`user`")
 @Data
 @ToString(exclude = {"password"})
 public class User {

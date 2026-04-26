@@ -7,6 +7,8 @@ import com.bytedance.content.admin.repository.UserRepository;
 import com.bytedance.content.common.exception.BusinessException;
 import com.bytedance.content.common.utils.JwtTokenProvider;
 import com.bytedance.content.common.utils.PasswordEncoderUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AuthenticationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthenticationService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -39,10 +43,21 @@ public class AuthenticationService {
     public LoginResponse login(LoginRequest loginRequest) {
         // 查询用户
         User user = userRepository.findByUsername(loginRequest.getUsername())
-                .orElseThrow(() -> new BusinessException(401, "用户名或密码错误"));
+                .orElseThrow(() -> {
+                    logger.warn("【登录失败】用户不存在，username={}", loginRequest.getUsername());
+                    return new BusinessException(401, "用户名或密码错误");
+                });
+
+        logger.info("【登录调试】找到用户: username={}, 数据库密码前10位={}", 
+                user.getUsername(), 
+                user.getPassword() != null ? user.getPassword().substring(0, Math.min(10, user.getPassword().length())) : "null");
 
         // 验证密码
-        if (!passwordEncoderUtil.matches(loginRequest.getPassword(), user.getPassword())) {
+        boolean matches = passwordEncoderUtil.matches(loginRequest.getPassword(), user.getPassword());
+        logger.info("【登录调试】密码比对结果: {}", matches);
+
+        if (!matches) {
+            logger.warn("【登录失败】密码不匹配，username={}", loginRequest.getUsername());
             throw new BusinessException(401, "用户名或密码错误");
         }
 

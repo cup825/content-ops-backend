@@ -13,6 +13,10 @@ import com.bytedance.content.admin.entity.User;
 import com.bytedance.content.admin.repository.UserRepository;
 import com.bytedance.content.admin.service.PermissionCheckService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -218,23 +222,12 @@ public class ContentService {
         if (page == null || page < 1) page = 1;
         if (pageSize == null || pageSize < 1) pageSize = 10;
 
-        // 从数据库查询所有内容
-        List<Content> allContents = contentRepository.findAll();
+        Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by("createdAt").descending());
+        ContentStatus statusEnum = (status == null) ? null : ContentStatus.valueOf(status);
+        Page<Content> pageResult = contentRepository.findByConditions(statusEnum, creatorId, pageable);
 
-        // 过滤逻辑
-        List<Content> filtered = allContents.stream()
-                .filter(c -> status == null || c.getStatus().toString().equals(status))
-                .filter(c -> creatorId == null || c.getCreator().getId().equals(creatorId))
-                .collect(Collectors.toList());
-
-        // 排序（按创建时间倒序）
-        filtered.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
-
-        // 分页
-        int total = filtered.size();
-        int start = (page - 1) * pageSize;
-        int end = Math.min(start + pageSize, total);
-        List<Content> pageData = filtered.subList(start, end);
+        int total = (int) pageResult.getTotalElements();
+        List<Content> pageData = pageResult.getContent();
 
         // 转换为响应格式
         List<com.bytedance.content.content.dto.ContentListItemResponse> data = pageData.stream()
