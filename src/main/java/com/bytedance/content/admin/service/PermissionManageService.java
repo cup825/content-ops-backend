@@ -53,19 +53,22 @@ public class PermissionManageService {
     @Autowired
     private PermissionCheckService permissionCheckService;
 
-    private void checkPermission(Long operatorId) {
-        // 首先尝试从安全上下文获取认证用户信息
-        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
-        if (authenticatedUserId != null) {
-            operatorId = authenticatedUserId;
-        }
-        
+    //检查是否具有管理权限，没有则抛出异常
+    private void checkPermission() {
+        Long operatorId = SecurityUtil.getCurrentUserId();
         if (operatorId == null) {
             throw new BusinessException(403, "操作权限不足");
         }
         if (!permissionCheckService.canManagePermission(operatorId)) {
             throw new BusinessException(403, "仅管理员可执行此操作");
         }
+    }
+
+    //不需要传入用户ID，从JWT安全上下文获取当前用户ID，如果未登录则抛出异常
+    private Long requireCurrentUserId() {
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (userId == null) throw new BusinessException(401, "请先登录");
+        return userId;
     }
 
     // 用户管理
@@ -80,6 +83,7 @@ public class PermissionManageService {
                 .collect(Collectors.toList());
     }
 
+    //分页查询用户
     public PaginationResponse<UserResponse> getUsersByPage(PaginationRequest request) {
         Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder()) 
                 ? Sort.Direction.DESC : Sort.Direction.ASC;
@@ -111,6 +115,7 @@ public class PermissionManageService {
         );
     }
 
+    // 获取单个用户由id
     public UserResponse getUserById(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
@@ -122,21 +127,23 @@ public class PermissionManageService {
         );
     }
 
-    public UserResponse createUser(Long operatorId, UserCreateRequest request) {
-        checkPermission(operatorId);
+    //创建新用户，用户名存在或角色不存在时抛出异常
+    public UserResponse createUser(UserCreateRequest request) {
+        checkPermission();
+        Long operatorId = requireCurrentUserId();
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             throw new BusinessException(400, "用户名已存在");
         }
-        Role role = roleRepository.findById(request.getRoleId())
+        Role role = roleRepository.findById(request.getRoleId()) // 和上面，一个是查到了报错，一个是查不到报错
                 .orElseThrow(() -> new BusinessException(404, "角色不存在"));
         
         User user = new User();
         user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoderUtil.encode(request.getPassword()));
+        user.setPassword(passwordEncoderUtil.encode(request.getPassword()));//保存加密后密码
         user.setRole(role);
         User savedUser = userRepository.save(user);
         
-        operationLogService.log(operatorId != null ? operatorId : 1L, "CREATE_USER", savedUser.getId());
+        operationLogService.log(operatorId, "CREATE_USER", savedUser.getId());
         return new UserResponse(
                 savedUser.getId(),
                 savedUser.getUsername(),
@@ -145,8 +152,10 @@ public class PermissionManageService {
         );
     }
 
-    public UserResponse updateUser(Long operatorId, Long userId, UserCreateRequest request) {
-        checkPermission(operatorId);
+    //修改用户信息，与上面方法类似
+    public UserResponse updateUser(Long userId, UserCreateRequest request) {
+        checkPermission();
+        Long operatorId = requireCurrentUserId();
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
         Role role = roleRepository.findById(request.getRoleId())
@@ -157,7 +166,7 @@ public class PermissionManageService {
         user.setRole(role);
         User updatedUser = userRepository.save(user);
         
-        operationLogService.log(operatorId != null ? operatorId : 1L, "UPDATE_USER", userId);
+        operationLogService.log(operatorId, "UPDATE_USER", userId);
         return new UserResponse(
                 updatedUser.getId(),
                 updatedUser.getUsername(),
@@ -166,12 +175,13 @@ public class PermissionManageService {
         );
     }
 
-    public void deleteUser(Long operatorId, Long userId) {
-        checkPermission(operatorId);
+    public void deleteUser(Long userId) {
+        checkPermission();
+        Long operatorId = requireCurrentUserId();
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
         userRepository.delete(user);
-        operationLogService.log(operatorId != null ? operatorId : 1L, "DELETE_USER", userId);
+        operationLogService.log(operatorId, "DELETE_USER", userId);
     }
 
     // 角色管理
@@ -193,13 +203,14 @@ public class PermissionManageService {
         );
     }
 
-    public RoleResponse updateRole(Long operatorId, Long roleId, RoleCreateRequest request) {
-        checkPermission(operatorId);
+    // 不支持修改/删除角色
+    public RoleResponse updateRole(Long roleId, RoleCreateRequest request) {
+        checkPermission();
         throw new BusinessException(400, "角色为系统预定义，不支持修改");
     }
 
-    public void deleteRole(Long operatorId, Long roleId) {
-        checkPermission(operatorId);
+    public void deleteRole(Long roleId) {
+        checkPermission();
         throw new BusinessException(400, "角色为系统预定义，不支持删除");
     }
 
@@ -213,6 +224,7 @@ public class PermissionManageService {
                 .collect(Collectors.toList());
     }
 
+    // 分页查询权限
     public PaginationResponse<PermissionResponse> getPermissionsByPage(PaginationRequest request) {
         Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder())
                 ? Sort.Direction.DESC : Sort.Direction.ASC;
@@ -242,31 +254,32 @@ public class PermissionManageService {
         );
     }
 
-    public PermissionResponse createPermission(Long operatorId, PermissionCreateRequest request) {
-        checkPermission(operatorId);
+    // 创建权限
+    public PermissionResponse createPermission(PermissionCreateRequest request) {
+        checkPermission();
+        Long operatorId = requireCurrentUserId();
         if (permissionRepository.findByPermissionName(request.getPermissionName()).isPresent()) {
             throw new BusinessException(400, "权限已存在");
         }
-        
+
         Permission permission = new Permission();
         permission.setPermissionName(request.getPermissionName());
         Permission savedPermission = permissionRepository.save(permission);
-        
-        operationLogService.log(operatorId != null ? operatorId : 1L, "CREATE_PERMISSION", savedPermission.getId());
-        return new PermissionResponse(
-                savedPermission.getId(),
-                savedPermission.getPermissionName()
-        );
+
+        operationLogService.log(operatorId, "CREATE_PERMISSION", savedPermission.getId());
+        return new PermissionResponse(savedPermission.getId(), savedPermission.getPermissionName());
     }
 
-    public void deletePermission(Long operatorId, Long permissionId) {
-        checkPermission(operatorId);
+    public void deletePermission(Long permissionId) {
+        checkPermission();
+        Long operatorId = requireCurrentUserId();
         Permission permission = permissionRepository.findById(permissionId)
                 .orElseThrow(() -> new BusinessException(404, "权限不存在"));
         permissionRepository.delete(permission);
-        operationLogService.log(operatorId != null ? operatorId : 1L, "DELETE_PERMISSION", permissionId);
+        operationLogService.log(operatorId, "DELETE_PERMISSION", permissionId);
     }
 
+    //获取系统统计数据，包括用户总数、角色总数、权限总数
     public Map<String, Object> getSystemStats() {
         long userCount = userRepository.count();
         long roleCount = roleRepository.count();

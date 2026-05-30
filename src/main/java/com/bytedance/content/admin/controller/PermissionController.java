@@ -2,8 +2,6 @@ package com.bytedance.content.admin.controller;
 
 import com.bytedance.content.admin.dto.*;
 import com.bytedance.content.admin.service.PermissionManageService;
-import com.bytedance.content.admin.service.PermissionCheckService;
-import com.bytedance.content.common.utils.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,14 +9,11 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/v1/admin")
 public class PermissionController {
 
     @Autowired
     private PermissionManageService permissionManageService;
-
-    @Autowired
-    private PermissionCheckService permissionCheckService;
 
     /**
      * 获取系统统计信息
@@ -31,11 +26,10 @@ public class PermissionController {
     // ==================== 用户管理 ====================
 
     /**
-     * 分页获取用户列表（支持排序）
-     * 
-     * 示例：GET /api/admin/users/page?page=1&pageSize=10&sortBy=id&sortOrder=desc
+     * 分页获取用户列表
+     * GET /api/v1/admin/users?page=1&pageSize=10&sortBy=id&sortOrder=desc
      */
-    @GetMapping("/users/page")
+    @GetMapping("/users")
     public PaginationResponse<UserResponse> getUsersByPage(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer pageSize,
@@ -44,7 +38,6 @@ public class PermissionController {
         PaginationRequest request = new PaginationRequest(page, pageSize, sortBy, sortOrder);
         return permissionManageService.getUsersByPage(request);
     }
-
 
     /**
      * 获取单个用户
@@ -55,39 +48,28 @@ public class PermissionController {
     }
 
     /**
-     * 创建用户（需要 ADMIN 权限）
+     * 创建用户（需要 ADMIN 权限，操作人从 JWT 解析）
      */
     @PostMapping("/users")
-    public UserResponse createUser(@RequestHeader(value = "X-User-Id", required = false) Long operatorId,
-                                   @RequestBody UserCreateRequest request) {
-        return permissionManageService.createUser(operatorId, request);
+    public UserResponse createUser(@RequestBody UserCreateRequest request) {
+        return permissionManageService.createUser(request);
     }
 
     /**
-     * 更新用户（需要 ADMIN 权限）
+     * 更新用户（需要 ADMIN 权限，操作人从 JWT 解析）
      */
     @PutMapping("/users/{userId}")
     public UserResponse updateUser(@PathVariable Long userId,
-                                   @RequestHeader(value = "X-User-Id", required = false) Long operatorId,
                                    @RequestBody UserCreateRequest request) {
-        return permissionManageService.updateUser(operatorId, userId, request);
+        return permissionManageService.updateUser(userId, request);
     }
 
     /**
-     * 删除用户（需要 ADMIN 权限）
-     * 
-     * 认证方式：
-     * 1. 优先使用 JWT token（Authorization: Bearer <token>）
-     * 2. 向后兼容 X-User-Id header
+     * 删除用户（需要 ADMIN 权限，操作人从 JWT 解析）
      */
     @DeleteMapping("/users/{userId}")
-    public Map<String, String> deleteUser(@PathVariable Long userId,
-                                          @RequestHeader(value = "X-User-Id", required = false) Long operatorId) {
-        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
-        if (authenticatedUserId != null) {
-            operatorId = authenticatedUserId;
-        }
-        permissionManageService.deleteUser(operatorId, userId);
+    public Map<String, String> deleteUser(@PathVariable Long userId) {
+        permissionManageService.deleteUser(userId);
         return Map.of("message", "用户删除成功");
     }
 
@@ -110,44 +92,30 @@ public class PermissionController {
     }
 
     /**
-     * 更新角色（需要 ADMIN 权限）
-     * 注意：系统预定义角色，暂不支持修改
+     * 更新角色（系统预定义，暂不支持）
      */
     @PutMapping("/roles/{roleId}")
     public RoleResponse updateRole(@PathVariable Long roleId,
-                                  @RequestHeader(value = "X-User-Id", required = false) Long operatorId,
-                                  @RequestBody RoleCreateRequest request) {
-        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
-        if (authenticatedUserId != null) {
-            operatorId = authenticatedUserId;
-        }
-        return permissionManageService.updateRole(operatorId, roleId, request);
+                                   @RequestBody RoleCreateRequest request) {
+        return permissionManageService.updateRole(roleId, request);
     }
 
     /**
-     * 删除角色（需要 ADMIN 权限）
-     * 注意：系统预定义角色，暂不支持删除
+     * 删除角色（系统预定义，暂不支持）
      */
     @DeleteMapping("/roles/{roleId}")
-    public Map<String, String> deleteRole(@PathVariable Long roleId,
-                                         @RequestHeader(value = "X-User-Id", required = false) Long operatorId) {
-        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
-        if (authenticatedUserId != null) {
-            operatorId = authenticatedUserId;
-        }
-        permissionManageService.deleteRole(operatorId, roleId);
+    public Map<String, String> deleteRole(@PathVariable Long roleId) {
+        permissionManageService.deleteRole(roleId);
         return Map.of("message", "角色删除成功");
     }
-
 
     // ==================== 权限管理 ====================
 
     /**
-     * 分页获取权限列表（支持排序）
-     * 
-     * 示例：GET /api/admin/permissions/page?page=1&pageSize=10&sortBy=id&sortOrder=asc
+     * 分页获取权限列表
+     * GET /api/v1/admin/permissions?page=1&pageSize=10
      */
-    @GetMapping("/permissions/page")
+    @GetMapping("/permissions")
     public PaginationResponse<PermissionResponse> getPermissionsByPage(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer pageSize,
@@ -160,37 +128,25 @@ public class PermissionController {
     /**
      * 获取所有权限（全量）
      */
-    @GetMapping("/permissions")
+    @GetMapping("/permissions/all")
     public List<PermissionResponse> getAllPermissions() {
         return permissionManageService.getAllPermissions();
     }
 
-
     /**
-     * 创建权限（需要 ADMIN 权限）
-     * 请求体: {"permissionName": "PERMISSION_NAME", "roleId": 1}
+     * 创建权限（需要 ADMIN 权限，操作人从 JWT 解析）
      */
     @PostMapping("/permissions")
-    public PermissionResponse createPermission(@RequestHeader(value = "X-User-Id", required = false) Long operatorId,
-                                               @RequestBody PermissionCreateRequest request) {
-        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
-        if (authenticatedUserId != null) {
-            operatorId = authenticatedUserId;
-        }
-        return permissionManageService.createPermission(operatorId, request);
+    public PermissionResponse createPermission(@RequestBody PermissionCreateRequest request) {
+        return permissionManageService.createPermission(request);
     }
 
     /**
-     * 删除权限（需要 ADMIN 权限）
+     * 删除权限（需要 ADMIN 权限，操作人从 JWT 解析）
      */
     @DeleteMapping("/permissions/{permissionId}")
-    public Map<String, String> deletePermission(@PathVariable Long permissionId,
-                                                @RequestHeader(value = "X-User-Id", required = false) Long operatorId) {
-        Long authenticatedUserId = SecurityUtil.getCurrentUserId();
-        if (authenticatedUserId != null) {
-            operatorId = authenticatedUserId;
-        }
-        permissionManageService.deletePermission(operatorId, permissionId);
+    public Map<String, String> deletePermission(@PathVariable Long permissionId) {
+        permissionManageService.deletePermission(permissionId);
         return Map.of("message", "权限删除成功");
     }
 }
