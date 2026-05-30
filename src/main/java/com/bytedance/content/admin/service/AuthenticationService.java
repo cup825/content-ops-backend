@@ -31,7 +31,7 @@ public class AuthenticationService {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
-    @Value("${app.jwtExpirationMs}")
+    @Value("${app.jwtExpirationMs}") // 从 application.properties 读取token过期时间
     private long jwtExpirationMs;
 
     /**
@@ -48,11 +48,13 @@ public class AuthenticationService {
                     return new BusinessException(401, "用户名或密码错误");
                 });
 
-        logger.info("【登录调试】找到用户: username={}, 数据库密码前10位={}", 
-                user.getUsername(), 
-                user.getPassword() != null ? user.getPassword().substring(0, Math.min(10, user.getPassword().length())) : "null");
+//        logger.info("【登录调试】找到用户: username={}, 数据库密码前10位={}",
+//                user.getUsername(),
+//                user.getPassword() != null ? user.getPassword().substring(0, Math.min(10, user.getPassword().length())) : "null");
+        logger.info("【登录调试】找到用户: username={}",
+                user.getUsername());
 
-        // 验证密码
+        // 手动输入的密码与数据库中的密码进行比对
         boolean matches = passwordEncoderUtil.matches(loginRequest.getPassword(), user.getPassword());
         logger.info("【登录调试】密码比对结果: {}", matches);
 

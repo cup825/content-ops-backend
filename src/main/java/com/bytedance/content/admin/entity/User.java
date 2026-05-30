@@ -28,7 +28,7 @@ public class User {
     private String password;
 
     @NotNull(message = "角色不能为空")
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)  // 一个角色可以对应多个用户（多对一）
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
