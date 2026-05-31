@@ -13,6 +13,7 @@ import com.bytedance.content.content.service.OperationLogService;
 import com.bytedance.content.admin.entity.User;
 import com.bytedance.content.admin.repository.UserRepository;
 import com.bytedance.content.admin.service.PermissionCheckService;
+import com.bytedance.content.common.utils.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,22 +39,25 @@ public class AuditService {
 
     /**
      * 审核内容（通过或驳回）
+     * 审核人从 JWT token 解析，无需客户端传入
      */
     public AuditResponse auditContent(AuditRequest request) {
+        // 从 JWT 安全上下文获取审核人 ID
+        Long reviewerId = SecurityUtil.getCurrentUserId();
+        if (reviewerId == null) {
+            throw new BusinessException(401, "请先登录");
+        }
+
         // 权限检查：仅 REVIEWER 角色可审核
-        if (!permissionService.canAuditContent(request.getReviewerId())) {
+        if (!permissionService.canAuditContent(reviewerId)) {
             throw new BusinessException(403, "只有审核员才能进行内容审核");
         }
 
-        // 校验审核人是否存在
-        User reviewer = userRepository.findById(request.getReviewerId())
+        // 依次检查审核人和内容是否存在，以及是否为待审核状态
+        User reviewer = userRepository.findById(reviewerId)
                 .orElseThrow(() -> new BusinessException(404, "审核人不存在"));
-
-        // 校验内容是否存在
         Content content = contentRepository.findById(request.getContentId())
                 .orElseThrow(() -> new BusinessException(404, "内容不存在"));
-
-        // 校验内容状态是否为 PENDING（待审核）
         if (content.getStatus() != ContentStatus.PENDING) {
             throw new BusinessException(400, "内容不处于待审核状态，无法审核");
         }
@@ -79,7 +83,7 @@ public class AuditService {
 
         // 更新内容状态
         content.setStatus(newContentStatus);
-        Content updatedContent = contentRepository.save(content);
+        contentRepository.save(content);
 
         // 创建审核记录
         AuditRecord auditRecord = new AuditRecord();
@@ -92,9 +96,8 @@ public class AuditService {
 
         // 记录操作日志
         String action = "APPROVED".equals(request.getAction()) ? "APPROVE_CONTENT" : "REJECT_CONTENT";
-        operationLogService.log(request.getReviewerId(), action, request.getContentId());
+        operationLogService.log(reviewerId, action, request.getContentId());
 
-        // 返回审核结果
         return new AuditResponse(
                 savedAuditRecord.getId(),
                 content.getId(),

@@ -11,9 +11,6 @@ public class AuditRequest {
     @NotNull(message = "内容ID不能为空")
     private Long contentId;
 
-    @NotNull(message = "审核人ID不能为空")
-    private Long reviewerId;
-
     @NotNull(message = "审核操作不能为空")
     private String action;  // APPROVED 或 REJECTED
 
