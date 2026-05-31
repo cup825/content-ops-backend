@@ -3,6 +3,8 @@ package com.bytedance.content.admin.controller;
 import com.bytedance.content.admin.dto.LoginRequest;
 import com.bytedance.content.admin.dto.LoginResponse;
 import com.bytedance.content.admin.service.AuthenticationService;
+import com.bytedance.content.common.vo.ApiResponse;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,27 +21,10 @@ public class AuthController {
 
     /**
      * 用户登录
-     * 
-     * 请求示例：
-     * POST /api/auth/login
-     * {
-     *     "username": "admin",
-     *     "password": "123456"
-     * }
-     * 
-     * 响应示例：
-     * {
-     *     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
-     *     "tokenType": "Bearer",
-     *     "expiresIn": 86400000,
-     *     "userId": 1,
-     *     "username": "admin",
-     *     "role": "ADMIN"
-     * }
+     * POST /api/v1/auth/login
      */
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest loginRequest) {
-        return authenticationService.login(loginRequest);
+    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+        return ApiResponse.success(authenticationService.login(loginRequest));
     }
 }
-

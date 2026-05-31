@@ -14,11 +14,15 @@ import com.bytedance.content.common.exception.BusinessException;
 import com.bytedance.content.content.entity.Content;
 import com.bytedance.content.content.repository.ContentRepository;
 import com.bytedance.content.content.service.OperationLogService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
 
@@ -42,9 +46,28 @@ public class AuditServiceTest {
     @InjectMocks
     private AuditService auditService;
 
+    @BeforeEach
+    void setUp() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void setAuthenticatedReviewer(Long reviewerId) {
+        TestingAuthenticationToken authentication =
+                new TestingAuthenticationToken("reviewer", "password", "ROLE_REVIEWER");
+        authentication.setDetails(reviewerId);
+        authentication.setAuthenticated(true);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
     // ---- 测试1：审核通过，内容状态变为 APPROVED ----
     @Test
     public void auditContent_approve_statusBecomesApproved() {
+        setAuthenticatedReviewer(3L);
         User reviewer = new User(); reviewer.setId(3L); reviewer.setUsername("reviewer1");
         Content content = new Content(); content.setId(1L); content.setStatus(ContentStatus.PENDING);
         Content savedContent = new Content(); savedContent.setId(1L); savedContent.setStatus(ContentStatus.APPROVED);
@@ -57,7 +80,6 @@ public class AuditServiceTest {
         when(auditRecordRepository.save(any())).thenReturn(savedRecord);
 
         AuditRequest request = new AuditRequest();
-        request.setReviewerId(3L);
         request.setContentId(1L);
         request.setAction("APPROVED");
 
@@ -69,6 +91,7 @@ public class AuditServiceTest {
     // ---- 测试2：拒绝审核时不填驳回原因，应抛出400 ----
     @Test
     public void auditContent_rejectWithoutComment_throws400() {
+        setAuthenticatedReviewer(3L);
         User reviewer = new User(); reviewer.setId(3L);
         Content content = new Content(); content.setId(1L); content.setStatus(ContentStatus.PENDING);
 
@@ -77,7 +100,6 @@ public class AuditServiceTest {
         when(contentRepository.findById(1L)).thenReturn(Optional.of(content));
 
         AuditRequest request = new AuditRequest();
-        request.setReviewerId(3L);
         request.setContentId(1L);
         request.setAction("REJECTED");
         request.setComment(""); // 空评论
@@ -90,6 +112,7 @@ public class AuditServiceTest {
     // ---- 测试3：只有 PENDING 状态的内容才能被审核 ----
     @Test
     public void auditContent_notPendingStatus_throws400() {
+        setAuthenticatedReviewer(3L);
         User reviewer = new User(); reviewer.setId(3L);
         Content content = new Content(); content.setId(1L);
         content.setStatus(ContentStatus.DRAFT); // 草稿不能被审核
@@ -99,7 +122,6 @@ public class AuditServiceTest {
         when(contentRepository.findById(1L)).thenReturn(Optional.of(content));
 
         AuditRequest request = new AuditRequest();
-        request.setReviewerId(3L);
         request.setContentId(1L);
         request.setAction("APPROVED");
 
@@ -108,4 +130,3 @@ public class AuditServiceTest {
         assertEquals(400, ex.getCode());
     }
 }
-

@@ -14,6 +14,8 @@ import com.bytedance.content.admin.entity.User;
 import com.bytedance.content.admin.repository.UserRepository;
 import com.bytedance.content.admin.service.PermissionCheckService;
 import com.bytedance.content.common.utils.SecurityUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class AuditService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuditService.class);
 
     @Autowired
     private ContentRepository contentRepository;
@@ -47,9 +51,11 @@ public class AuditService {
         if (reviewerId == null) {
             throw new BusinessException(401, "请先登录");
         }
+        logger.info("审核请求：reviewerId={}, contentId={}, action={}", reviewerId, request.getContentId(), request.getAction());
 
         // 权限检查：仅 REVIEWER 角色可审核
         if (!permissionService.canAuditContent(reviewerId)) {
+            logger.warn("审核权限不足：reviewerId={}", reviewerId);
             throw new BusinessException(403, "只有审核员才能进行内容审核");
         }
 
@@ -59,6 +65,7 @@ public class AuditService {
         Content content = contentRepository.findById(request.getContentId())
                 .orElseThrow(() -> new BusinessException(404, "内容不存在"));
         if (content.getStatus() != ContentStatus.PENDING) {
+            logger.warn("内容状态不符：contentId={}, currentStatus={}", request.getContentId(), content.getStatus());
             throw new BusinessException(400, "内容不处于待审核状态，无法审核");
         }
 
@@ -98,6 +105,7 @@ public class AuditService {
         String action = "APPROVED".equals(request.getAction()) ? "APPROVE_CONTENT" : "REJECT_CONTENT";
         operationLogService.log(reviewerId, action, request.getContentId());
 
+        logger.info("审核完成：contentId={}, result={}, reviewerId={}", request.getContentId(), newContentStatus, reviewerId);
         return new AuditResponse(
                 savedAuditRecord.getId(),
                 content.getId(),

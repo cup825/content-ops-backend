@@ -1,7 +1,9 @@
 package com.bytedance.content.content.controller;
 
+import com.bytedance.content.common.vo.ApiResponse;
 import com.bytedance.content.content.dto.*;
 import com.bytedance.content.content.service.ContentService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,12 +17,12 @@ public class ContentController {
     private ContentService contentService;
 
     /**
-     * 创建内容（操作人从 JWT 解析）
+     * 创建内容（创建人从 JWT 解析）
      * POST /api/v1/content
      */
     @PostMapping
-    public CreateContentResponse createContent(@RequestBody CreateContentRequest request) {
-        return contentService.createContent(request);
+    public ApiResponse<CreateContentResponse> createContent(@Valid @RequestBody CreateContentRequest request) {
+        return ApiResponse.success(contentService.createContent(request));
     }
 
     /**
@@ -28,10 +30,10 @@ public class ContentController {
      * PUT /api/v1/content/{contentId}
      */
     @PutMapping("/{contentId}")
-    public CreateContentResponse updateContent(
+    public ApiResponse<CreateContentResponse> updateContent(
             @PathVariable Long contentId,
-            @RequestBody UpdateContentRequest request) {
-        return contentService.updateContent(contentId, request);
+            @Valid @RequestBody UpdateContentRequest request) {
+        return ApiResponse.success(contentService.updateContent(contentId, request));
     }
 
     /**
@@ -39,9 +41,9 @@ public class ContentController {
      * DELETE /api/v1/content/{contentId}
      */
     @DeleteMapping("/{contentId}")
-    public Map<String, String> deleteContent(@PathVariable Long contentId) {
+    public ApiResponse<String> deleteContent(@PathVariable Long contentId) {
         contentService.deleteContent(contentId);
-        return Map.of("message", "内容删除成功");
+        return ApiResponse.success("内容删除成功", null);
     }
 
     /**
@@ -49,8 +51,8 @@ public class ContentController {
      * POST /api/v1/content/{contentId}/submit
      */
     @PostMapping("/{contentId}/submit")
-    public SubmitReviewResponse submitForReview(@PathVariable Long contentId) {
-        return contentService.submitForReview(contentId);
+    public ApiResponse<SubmitReviewResponse> submitForReview(@PathVariable Long contentId) {
+        return ApiResponse.success(contentService.submitForReview(contentId));
     }
 
     /**
@@ -58,8 +60,8 @@ public class ContentController {
      * POST /api/v1/content/{contentId}/publish
      */
     @PostMapping("/{contentId}/publish")
-    public CreateContentResponse publishContent(@PathVariable Long contentId) {
-        return contentService.publishContent(contentId);
+    public ApiResponse<CreateContentResponse> publishContent(@PathVariable Long contentId) {
+        return ApiResponse.success(contentService.publishContent(contentId));
     }
 
     /**
@@ -67,8 +69,8 @@ public class ContentController {
      * POST /api/v1/content/{contentId}/offline
      */
     @PostMapping("/{contentId}/offline")
-    public CreateContentResponse offlineContent(@PathVariable Long contentId) {
-        return contentService.offlineContent(contentId);
+    public ApiResponse<CreateContentResponse> offlineContent(@PathVariable Long contentId) {
+        return ApiResponse.success(contentService.offlineContent(contentId));
     }
 
     /**
@@ -76,13 +78,13 @@ public class ContentController {
      * GET /api/v1/content?status=DRAFT&creatorId=1&page=1&pageSize=10
      */
     @GetMapping
-    public Map<String, Object> listContent(
+    public ApiResponse<Map<String, Object>> listContent(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long creatorId,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        return contentService.listContent(status, creatorId, page, pageSize, startDate, endDate);
+        return ApiResponse.success(contentService.listContent(status, creatorId, page, pageSize, startDate, endDate));
     }
 }

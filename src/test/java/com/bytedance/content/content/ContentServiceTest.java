@@ -10,14 +10,17 @@ import com.bytedance.content.content.dto.CreateContentResponse;
 import com.bytedance.content.content.dto.UpdateContentRequest;
 import com.bytedance.content.content.entity.Content;
 import com.bytedance.content.content.repository.ContentRepository;
-import com.bytedance.content.content.repository.OperationLogRepository;
 import com.bytedance.content.content.service.ContentService;
 import com.bytedance.content.content.service.OperationLogService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
 
@@ -31,9 +34,9 @@ import static org.mockito.Mockito.*;
  * 使用 Mockito 模拟所有依赖（Repository、Service），
  * 只测试 ContentService 自身的业务逻辑，不需要启动 Spring 容器或连接数据库。
  *
- * @Mock     → 创建一个假对象，默认所有方法返回 null/0/false
- * @InjectMocks → 创建真实的 ContentService，并把上面的假对象注入进去
- * when(...).thenReturn(...) → 指定假对象某个方法被调用时返回什么值
+ * <code>@Mock</code> -> 创建一个假对象，默认所有方法返回 null/0/false
+ * <code>@InjectMocks</code> -> 创建真实的 ContentService，并把上面的假对象注入进去
+ * when(...).thenReturn(...) -> 指定假对象某个方法被调用时返回什么值
  */
 @ExtendWith(MockitoExtension.class)
 public class ContentServiceTest {
@@ -42,14 +45,32 @@ public class ContentServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private PermissionCheckService permissionService;
     @Mock private OperationLogService operationLogService;
-    @Mock private OperationLogRepository operationLogRepository;
 
     @InjectMocks
     private ContentService contentService;
 
+    @BeforeEach
+    void setUp() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void setAuthenticatedUser(Long userId) {
+        TestingAuthenticationToken authentication =
+                new TestingAuthenticationToken("user", "password", "ROLE_OPERATOR");
+        authentication.setDetails(userId);
+        authentication.setAuthenticated(true);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
     // ---- 测试1：正常创建内容，返回草稿状态 ----
     @Test
     public void createContent_success_returnsDraft() {
+        setAuthenticatedUser(2L);
         User mockUser = new User();
         mockUser.setId(2L);
         mockUser.setUsername("operator1");
@@ -63,7 +84,6 @@ public class ContentServiceTest {
         when(contentRepository.save(any())).thenReturn(savedContent);
 
         CreateContentRequest request = new CreateContentRequest();
-        request.setCreatorId(2L);
         request.setTitle("测试标题");
         request.setContent("测试内容");
 
@@ -79,10 +99,10 @@ public class ContentServiceTest {
     // ---- 测试2：没有权限的用户创建内容，应抛出403 ----
     @Test
     public void createContent_noPermission_throws403() {
+        setAuthenticatedUser(3L);
         when(permissionService.canCreateContent(3L)).thenReturn(false);
 
         CreateContentRequest request = new CreateContentRequest();
-        request.setCreatorId(3L);
         request.setTitle("标题");
         request.setContent("内容");
 
@@ -97,6 +117,7 @@ public class ContentServiceTest {
     // ---- 测试3：非草稿状态的内容不能编辑，应抛出400 ----
     @Test
     public void updateContent_nonDraftStatus_throws400() {
+        setAuthenticatedUser(2L);
         Content content = new Content();
         content.setId(1L);
         content.setStatus(ContentStatus.PENDING); // pending 不能编辑
@@ -108,7 +129,7 @@ public class ContentServiceTest {
         when(permissionService.canEditContent(2L, 2L)).thenReturn(true);
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> contentService.updateContent(1L, 2L, new UpdateContentRequest()));
+                () -> contentService.updateContent(1L, new UpdateContentRequest()));
 
         assertEquals(400, ex.getCode());
     }
@@ -116,6 +137,7 @@ public class ContentServiceTest {
     // ---- 测试4：草稿状态可以提交审核，状态变为 PENDING ----
     @Test
     public void submitForReview_fromDraft_statusBecomePending() {
+        setAuthenticatedUser(2L);
         Content content = new Content();
         content.setId(1L);
         content.setStatus(ContentStatus.DRAFT);
@@ -131,7 +153,7 @@ public class ContentServiceTest {
         when(permissionService.isContentCreator(2L, 2L)).thenReturn(true);
         when(contentRepository.save(any())).thenReturn(savedContent);
 
-        var response = contentService.submitForReview(1L, 2L);
+        var response = contentService.submitForReview(1L);
 
         assertEquals("PENDING", response.getStatus());
         assertEquals("提交审核成功", response.getMessage());
@@ -140,12 +162,12 @@ public class ContentServiceTest {
     // ---- 测试5：查询不存在的内容时应抛出404 ----
     @Test
     public void deleteContent_contentNotFound_throws404() {
+        setAuthenticatedUser(2L);
         when(contentRepository.findById(99L)).thenReturn(Optional.empty());
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> contentService.deleteContent(99L, 2L));
+                () -> contentService.deleteContent(99L));
 
         assertEquals(404, ex.getCode());
     }
 }
-

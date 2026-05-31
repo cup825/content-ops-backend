@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.bytedance.content.common.utils.SecurityUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,7 +28,7 @@ import com.bytedance.content.content.service.OperationLogService;
 /**
  * 权限管理服务
  * 职责：用户、角色、权限的增删改查管理，并记录操作日志
- *
+ * <p>
  * 权限校验说明：
  * - 所有修改操作（增删改）都需要 ADMIN 权限
  * - 越权操作会抛出 403 异常
@@ -34,6 +36,8 @@ import com.bytedance.content.content.service.OperationLogService;
 @Service
 @Transactional
 public class PermissionManageService {
+
+    private static final Logger logger = LoggerFactory.getLogger(PermissionManageService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -85,18 +89,18 @@ public class PermissionManageService {
 
     //分页查询用户
     public PaginationResponse<UserResponse> getUsersByPage(PaginationRequest request) {
-        Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder()) 
+        Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder())
                 ? Sort.Direction.DESC : Sort.Direction.ASC;
         String sortBy = request.getSortBy() != null ? request.getSortBy() : "id";
-        
+
         org.springframework.data.domain.Pageable pageable = PageRequest.of(
                 request.getPageNumber(),
                 request.getPageSize(),
                 Sort.by(direction, sortBy)
         );
-        
+
         Page<User> page = userRepository.findAll(pageable);
-        
+
         List<UserResponse> content = page.getContent().stream()
                 .map(user -> new UserResponse(
                         user.getId(),
@@ -105,7 +109,7 @@ public class PermissionManageService {
                         user.getCreatedAt() != null ? user.getCreatedAt().toString() : ""
                 ))
                 .collect(Collectors.toList());
-        
+
         return new PaginationResponse<>(
                 content,
                 page.getTotalElements(),
@@ -131,53 +135,51 @@ public class PermissionManageService {
     public UserResponse createUser(UserCreateRequest request) {
         checkPermission();
         Long operatorId = requireCurrentUserId();
+        logger.info("创建用户：operatorId={}, username={}", operatorId, request.getUsername());
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             throw new BusinessException(400, "用户名已存在");
         }
         Role role = roleRepository.findById(request.getRoleId()) // 和上面，一个是查到了报错，一个是查不到报错
                 .orElseThrow(() -> new BusinessException(404, "角色不存在"));
-        
+
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoderUtil.encode(request.getPassword()));//保存加密后密码
         user.setRole(role);
         User savedUser = userRepository.save(user);
-        
+
         operationLogService.log(operatorId, "CREATE_USER", savedUser.getId());
-        return new UserResponse(
-                savedUser.getId(),
-                savedUser.getUsername(),
+        logger.info("用户创建成功：userId={}", savedUser.getId());
+        return new UserResponse(savedUser.getId(), savedUser.getUsername(),
                 savedUser.getRole().getRoleName().toString(),
                 savedUser.getCreatedAt() != null ? savedUser.getCreatedAt().toString() : ""
         );
     }
 
-    //修改用户信息，与上面方法类似
     public UserResponse updateUser(Long userId, UserCreateRequest request) {
         checkPermission();
         Long operatorId = requireCurrentUserId();
+        logger.info("更新用户：operatorId={}, targetUserId={}", operatorId, userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
         Role role = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new BusinessException(404, "角色不存在"));
-        
+
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoderUtil.encode(request.getPassword()));
         user.setRole(role);
         User updatedUser = userRepository.save(user);
-        
+
         operationLogService.log(operatorId, "UPDATE_USER", userId);
-        return new UserResponse(
-                updatedUser.getId(),
-                updatedUser.getUsername(),
+        return new UserResponse(updatedUser.getId(), updatedUser.getUsername(),
                 updatedUser.getRole().getRoleName().toString(),
-                updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt().toString() : ""
-        );
+                updatedUser.getCreatedAt() != null ? updatedUser.getCreatedAt().toString() : "");
     }
 
     public void deleteUser(Long userId) {
         checkPermission();
         Long operatorId = requireCurrentUserId();
+        logger.info("删除用户：operatorId={}, targetUserId={}", operatorId, userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
         userRepository.delete(user);
@@ -258,6 +260,7 @@ public class PermissionManageService {
     public PermissionResponse createPermission(PermissionCreateRequest request) {
         checkPermission();
         Long operatorId = requireCurrentUserId();
+        logger.info("创建权限：operatorId={}, permissionName={}", operatorId, request.getPermissionName());
         if (permissionRepository.findByPermissionName(request.getPermissionName()).isPresent()) {
             throw new BusinessException(400, "权限已存在");
         }
@@ -273,6 +276,7 @@ public class PermissionManageService {
     public void deletePermission(Long permissionId) {
         checkPermission();
         Long operatorId = requireCurrentUserId();
+        logger.info("删除权限：operatorId={}, permissionId={}", operatorId, permissionId);
         Permission permission = permissionRepository.findById(permissionId)
                 .orElseThrow(() -> new BusinessException(404, "权限不存在"));
         permissionRepository.delete(permission);

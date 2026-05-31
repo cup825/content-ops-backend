@@ -3,6 +3,8 @@ package com.bytedance.content.common.exception;
 import com.bytedance.content.common.vo.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -24,7 +26,20 @@ public class GlobalExceptionHandler {
         logger.warn("Business exception occurred: {}", e.getMessage());
         return ApiResponse.fail(e.getCode(), e.getMessage());
     }
-    
+
+    /**
+     * 处理参数校验失败异常（@Valid 校验不通过时触发）
+     * 将所有字段错误拼成一条提示信息返回
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ApiResponse<Object> handleValidationException(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .collect(java.util.stream.Collectors.joining("; "));
+        logger.warn("Validation failed: {}", message);
+        return ApiResponse.fail(400, message);
+    }
+
     /**
      * 处理 404 (NotFound) 异常 - 接口路径不存在
      */
