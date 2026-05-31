@@ -8,76 +8,74 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/content")
+@RequestMapping("/api/v1/content")
 public class ContentController {
 
     @Autowired
     private ContentService contentService;
 
     /**
-     * 创建内容
+     * 创建内容（操作人从 JWT 解析）
+     * POST /api/v1/content
      */
-    @PostMapping("/create")
+    @PostMapping
     public CreateContentResponse createContent(@RequestBody CreateContentRequest request) {
         return contentService.createContent(request);
     }
 
     /**
-     * 编辑内容
+     * 编辑内容（操作人从 JWT 解析）
+     * PUT /api/v1/content/{contentId}
      */
-    @PutMapping("/{contentId}/update")
+    @PutMapping("/{contentId}")
     public CreateContentResponse updateContent(
             @PathVariable Long contentId,
-            @RequestParam Long userId,
             @RequestBody UpdateContentRequest request) {
-        return contentService.updateContent(contentId, userId, request);
+        return contentService.updateContent(contentId, request);
     }
 
     /**
-     * 删除内容
+     * 删除内容（操作人从 JWT 解析）
+     * DELETE /api/v1/content/{contentId}
      */
     @DeleteMapping("/{contentId}")
-    public Map<String, String> deleteContent(
-            @PathVariable Long contentId,
-            @RequestParam Long userId) {
-        contentService.deleteContent(contentId, userId);
+    public Map<String, String> deleteContent(@PathVariable Long contentId) {
+        contentService.deleteContent(contentId);
         return Map.of("message", "内容删除成功");
     }
 
     /**
-     * 提交审核
+     * 提交审核（操作人从 JWT 解析）
+     * POST /api/v1/content/{contentId}/submit
      */
-    @PostMapping("/submit-review")
-    public SubmitReviewResponse submitForReview(
-            @RequestParam Long contentId,
-            @RequestParam Long userId) {
-        return contentService.submitForReview(contentId, userId);
+    @PostMapping("/{contentId}/submit")
+    public SubmitReviewResponse submitForReview(@PathVariable Long contentId) {
+        return contentService.submitForReview(contentId);
     }
 
     /**
-     * 发布内容
+     * 发布内容（操作人从 JWT 解析）
+     * POST /api/v1/content/{contentId}/publish
      */
-    @PostMapping("/publish")
-    public CreateContentResponse publishContent(
-            @RequestParam Long contentId,
-            @RequestParam Long userId) {
-        return contentService.publishContent(contentId, userId);
+    @PostMapping("/{contentId}/publish")
+    public CreateContentResponse publishContent(@PathVariable Long contentId) {
+        return contentService.publishContent(contentId);
     }
 
     /**
-     * 下线内容
+     * 下线内容（操作人从 JWT 解析）
+     * POST /api/v1/content/{contentId}/offline
      */
-    @PostMapping("/offline")
-    public CreateContentResponse offlineContent(
-            @RequestParam Long contentId,
-            @RequestParam Long userId) {
-        return contentService.offlineContent(contentId, userId);
+    @PostMapping("/{contentId}/offline")
+    public CreateContentResponse offlineContent(@PathVariable Long contentId) {
+        return contentService.offlineContent(contentId);
     }
 
     /**
      * 查询内容列表
+     * GET /api/v1/content?status=DRAFT&creatorId=1&page=1&pageSize=10
      */
-    @GetMapping("/list")
+    @GetMapping
     public Map<String, Object> listContent(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long creatorId,
@@ -88,4 +86,3 @@ public class ContentController {
         return contentService.listContent(status, creatorId, page, pageSize, startDate, endDate);
     }
 }
-

@@ -38,8 +38,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 配置授权规则
                 .authorizeHttpRequests(authz -> authz
-                        // 登录端点无需认证
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        // 登录端点无需认证（v1 路径）
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         // 健康检查端点
                         .requestMatchers("/actuator/**").permitAll()
                         // 其他所有请求都需要认证

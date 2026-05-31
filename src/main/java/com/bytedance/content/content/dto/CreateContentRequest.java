@@ -15,7 +15,5 @@ public class CreateContentRequest {
     @NotBlank(message = "内容不能为空")
     private String content;
 
-    @NotNull(message = "创建人ID不能为空")
-    private Long creatorId;
 }
 
